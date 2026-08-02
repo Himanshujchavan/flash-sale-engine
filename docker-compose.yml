@@ -1,0 +1,58 @@
+version: "3.9"
+
+# Run with: docker compose up -d
+# Brings up Postgres, Redis, RabbitMQ, and Seq.
+# (Originally the README assumed a native Windows Postgres install, but running
+# everything in Docker keeps the dev setup self-contained on any machine.)
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: flash-sale-postgres
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=12345678
+    ports:
+      - "5432:5432"
+    volumes:
+      - flash-sale-postgres-data:/var/lib/postgresql/data
+      - ./setup_databases.sql:/docker-entrypoint-initdb.d/setup_databases.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: flash-sale-redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: flash-sale-rabbitmq
+    ports:
+      - "5672:5672"   # AMQP port (used by services)
+      - "15672:15672" # Management UI -> http://localhost:15672  (guest/guest)
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "check_port_connectivity"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  seq:
+    image: datalust/seq:latest
+    container_name: flash-sale-seq
+    environment:
+      - ACCEPT_EULA=Y
+    ports:
+      - "5341:80"     # Seq UI -> http://localhost:5341
+
+volumes:
+  flash-sale-postgres-data:
